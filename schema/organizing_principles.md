@@ -207,7 +207,7 @@ Tag extracted entities/relationships with confidence level:
 | Medium     | 0.6-0.8 | Implied or inferred from clear context   |
 | Low        | < 0.6   | Ambiguous or uncertain - flag for review |
 
-## 4.10 Extraction Scope (MVP)
+## 4.10 Extraction Scope
 
 **What to extract:**
 
@@ -218,7 +218,7 @@ Tag extracted entities/relationships with confidence level:
 -   ✅ Documents, Chunks, Interactions
 -   ✅ Tags
 
-**What NOT to extract (out of scope for MVP):**
+**What NOT to extract (Planned for v2.x or future extended layer):**
 
 1. **Business context layer**:
 
