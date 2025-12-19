@@ -1,418 +1,263 @@
-# LLM-Driven Graph Schema Principles (Fact-First Design)
+# Knowledge Graph Design Decisions & Open Challenges
 
-## Purpose
+**(Global Distribution · LLM-Driven · Fact-First Graph)**
 
-This document defines schema and ontology principles for building a graph database for the **Global Distribution Business**, populated by LLM extraction from unstructured text.
-
-The goal is to store **universal facts** that every business in the world can use as a foundation, while leaving room for specific use cases in future versions.
-
-This approach ensures:
-- Reduced LLM reasoning cost
-- Avoidance of premature business interpretation
-- Preservation of factual correctness
-- Consistent, reusable inference later
-
-## Core Principle: Facts First, Insights Later
-
-### Definition
-
-- **Facts**: Explicitly stated, observable relationships in source data
-- **Insights / Inferences**: Conclusions derived by reasoning over facts
-
-> ➡ **Only facts belong in the graph at this stage.**
-> ➡ **Insights must NOT be stored as facts unless they become stable, reusable, and agreed upon.**
-
-### What Is a Fact?
-
-A fact is something that appears directly and unambiguously in the source text.
-
-**Examples (Facts — STORE THESE)**
-- Company A produces Product X
-- Company A sells Product X to Company B
-- Company B operates in Europe
-
-These are:
-- Verb-based
-- Contextual
-- Non-interpretive
-
-### What Is NOT a Fact?
-
-Anything that requires thinking, interpretation, or aggregation across facts.
-
-**Examples (Inferences — DO NOT STORE YET)**
-- Company A is a Manufacturer
-- Company B is a Customer
-- Company A is a Global Distributor
-- Company A dominates Market Y
-
-These are:
-- Role assignments
-- Business interpretations
-- Potentially context- or time-dependent
-
-## Ontology Design Rule: Rows vs Types
-
-### Rule
-
-If something is derived from multiple facts, it is a row-level insight, not a type.
-
-- Facts = graph edges
-- Insights = query results, rules, or views
-
-**Do not convert insights into:**
-- Node labels
-- Classes
-- Boolean properties
-**...until they are proven necessary and stable.**
-
-## Class Design Principles
-
-### Use Few, General Core Classes
-
-**Recommended examples:**
-- `Company`
-- `Product`
-- `Person`
-- `Organization`
-- `Location`
-- `Region`
-
-**Avoid:**
-- `Manufacturer`
-- `Distributor`
-- `Customer`
-- `Supplier`
-
-These are roles, not entity types.
-
-## Relationship Design Principles
-
-### Prefer Verbs Over States
-
-**Use:**
-- `producesProduct`
-- `sellsProductTo`
-- `suppliesProductTo`
-- `operatesInRegion`
-
-**Avoid:**
-- `isManufacturer`
-- `isCustomer`
-- `isDistributor`
-
-> **Verbs represent facts. States represent interpretations.**
-
-## LLM Extraction Rules
-
-**LLMs should:**
-- Extract entities
-- Extract verb-based relationships
-- Extract literals (dates, quantities, locations)
-
-**LLMs should NOT:**
-- Assign roles
-- Classify companies by business type
-- Apply domain logic
-- Perform aggregation or comparison
-
-## Inference Belongs to a Later Layer
-
-Insights such as `Manufacturer`, `Customer`, `Distributor`, `Partner` should be produced via:
-- SPARQL queries
-- OWL reasoning
-- Rules engines
-- Application logic
-
-**Example:**
-"If a company produces a product, it can be considered a manufacturer."
-*This is a rule, not a fact.*
-
-### When to Promote an Insight into the Graph
-
-Only promote an inferred concept into the schema if it is:
-- Consistently defined
-- Widely reused
-- Business-critical
-- Stable over time
-
-Until then:
-➡ **Keep it computed, not stored.**
-
-## Summary Principles
-
-1. Store facts, not conclusions
-2. LLMs extract what is said, not what is meant
-3. Roles emerge from relationships
-4. Inference is reversible; facts are not
-5. Delay schema commitment
-6. Optimize for correctness over convenience
-
-## Guiding Question
-
-Before adding anything to the graph, ask:
-
-> **"Is this explicitly stated in the source, or is it something we concluded?"**
-
-If it’s a conclusion — **do not store it yet.**
+This document summarizes the **key design challenges** we face when modeling complex global distribution business data in a graph database, and the **explicit decisions** we have made so far.
+Its purpose is to align internal understanding and to validate our approach with Neo4j’s experience.
 
 ---
 
-## Intent vs Fact Principle (Handling Uncertainty Correctly)
+## 1. Challenge: How to Store Complex Business Reality Without Over-Modeling
 
-### Why This Principle Exists
+### Problem
 
-In real business systems, not all important information is certain.
+Business reality contains:
 
-We frequently need to represent:
-* Potential deals
-* Planned implementations
-* Sales targets
-* Strategic focus areas
+* Companies, products, people, sites
+* Transactions, partnerships, operations
+* Planning, beliefs, intentions, and expectations
 
-These are **important**, but they are **not facts about the external world**.
+Naively modeling everything as entities or relationships leads to:
 
-This principle defines **how to store uncertainty without corrupting factual truth**.
+* Premature role assignment
+* Schema rigidity
+* High LLM reasoning cost
+* Loss of factual correctness
 
-### Core Distinction: Three Kinds of Truth
+### Decision
 
-The graph must clearly separate **three different kinds of truth**:
+**We store only universal, observable facts in the graph.**
 
-#### 1. Facts (What Actually Happened)
+* Facts are verb-based and explicitly stated
+* Business “roles” are never first-class schema concepts
+* Insights are derived later through queries or agents
 
-Objective, observable, irreversible.
+### Result
 
-Examples:
-* A meeting occurred
-* A product was discussed
-* An order was placed
-* A contract was signed
-
-**Facts are stored as:**
-* Entities
-* Verb-based relationships
-* Events
-
-#### 2. Intent (What We Plan or Believe Might Happen)
-
-Declared plans, targets, expectations, or hypotheses.
-
-Examples:
-* A potential opportunity with Company A
-* A sales goal of 100k GMV in 2025
-* A planned deployment at Site X
-
-**Intent is real, but it is not reality.**
-
-Intent represents:
-* Organizational belief
-* Strategic focus
-* Human planning
-
-Intent **may be wrong**, and that is acceptable.
-
-#### 3. Commitment (What Has Been Agreed)
-
-Mutual agreement or transaction.
-
-Examples:
-* Signed contracts
-* Confirmed orders
-* Formal partnerships
-
-Commitments are facts, but **stronger than events**.
-
-### Principle: Do Not Encode Uncertainty as Fact
-
-> **Uncertainty must never be stored as a relationship between external entities.**
-
-This means:
-
-❌ Do NOT:
-* Create Company–Company relationships for prospects
-* Label companies as customers or leads
-* Treat plans as outcomes
-
-✅ Instead:
-* Store uncertainty as **Intent objects**
-* Support intent with **Events and Evidence**
-* Promote intent to commitment only when facts justify it
-
-### How Intent Is Modeled
-
-#### Intent Objects (Allowed)
-
-The graph may include **explicit intent entities**, such as:
-* `Opportunity`
-* `Goal`
-
-These entities represent:
-* Planned outcomes
-* Expected value
-* Strategic objectives
-
-They are **not universal facts**, but **declared intent**.
-
-#### How Intent Connects to Facts
-
-Intent must always be grounded in facts.
-
-```text
-(Event) ── supports ──▶ (Opportunity)
-(Opportunity) ── contributesTo ──▶ (Goal)
-```
-
-This ensures:
-* Traceability
-* Explainability
-* Auditable reasoning
-
-### Rule: No Direct World Claims from Intent
-
-Intent entities:
-* Must NOT assert roles (customer, distributor)
-* Must NOT create Company–Company commitments
-* Must NOT replace factual relationships
-
-They only express:
-> *“We believe this may happen, based on these facts.”*
-
-### Lifecycle Rule: Promotion, Not Mutation
-
-Intent does not change into fact by updating state.
-
-Instead:
-* New facts are added (events, orders, contracts)
-* A new commitment relationship is created
-* Intent may become irrelevant or historical
-
-**Reality progresses by adding facts, not rewriting intent.**
-
-### Retrieval Principle
-
-When querying the graph:
-* Questions about **reality** → use Facts and Relationships
-* Questions about **plans or pipeline** → use Intent objects
-* Questions about **why we believe something** → traverse Events and Evidence
-
-This allows agents to:
-* Reason transparently
-* Assess confidence
-* Explain decisions
-
-### One-Line Rule
-
-> **Facts describe the world.
-> Intent describes our plans.
-> Commitments describe agreements.
-> Never collapse these layers.**
-
-### Anti-Pattern to Avoid
-
-If removing future data would make a statement false,
-**that statement should not be stored as a fact.**
+* Graph remains stable and reusable
+* LLM extraction becomes simpler and cheaper
+* Inference stays reversible and explainable
 
 ---
 
-## Event Principle (No Separate Progress Concept)
+## 2. Challenge: Facts vs. Insights (Inference Leakage)
 
-### Why This Principle Exists
+### Problem
 
-In many business systems, teams attempt to model **progress**, **status**, or **stage** as first-class concepts.
+Many useful concepts (e.g. *customer*, *manufacturer*, *distributor*) are not facts — they are conclusions drawn from multiple facts.
+
+Storing them directly causes:
+
+* Hard-coded business logic
+* Conflicting interpretations
+* Schema churn
+
+### Decision
+
+**Roles are never stored. They are derived from relationships.**
+
+* We store:
+
+  * `Company → PRODUCES → Product`
+  * `Company → SELLS_TO → Company`
+* We do NOT store:
+
+  * `Company.isManufacturer = true`
+  * `Company.isCustomer = true`
+
+### Result
+
+* Same data supports multiple interpretations
+* Different agents can apply different rules
+* No irreversible schema commitments
+
+---
+
+## 3. Challenge: Handling Uncertainty, Planning, and “Things That Might Happen”
+
+### Problem
+
+Sales, partnerships, and operations involve:
+
+* Opportunities that may never close
+* Plans that may change
+* Targets that may be missed
+
+These are important, but **not facts about the external world**.
+
+### Decision
+
+We distinguish **three layers of truth**:
+
+1. **Facts** — what actually happened
+2. **Intent** — what we plan or believe may happen
+3. **Commitments** — what has been formally agreed
+
+Intent is allowed in the graph, but **never encoded as fact**.
+
+### How This Is Modeled
+
+* `Opportunity` and `Goal` exist as **Intent objects**
+* They never create Company–Company commitments
+* They must always be supported by Events
+
+### Result
+
+* We can query pipeline and planning
+* Without corrupting factual truth
+* And without guessing outcomes
+
+---
+
+## 4. Challenge: How to Track Progress Without Storing Mutable State
+
+### Problem
+
+Business systems often store:
+
+* “Opportunity stage”
+* “Deal status”
+* “Progress percentage”
 
 This leads to:
-* Mutable state
-* Conflicting interpretations
+
+* Overwrites
 * Loss of history
-* Blurred boundaries between facts and workflow
+* Ambiguous meaning
 
-This principle defines a **single, unambiguous rule** for handling progress.
+### Decision
 
-### Core Rule: One Event Type, No Progress Nodes
+**We do NOT store progress. We store events.**
 
-> **All things that happen over time are modeled as `Event`.
-> “Progress” is never stored — it is derived.**
+* There is a single `Event` concept
+* All changes, decisions, and interactions are Events
+* Progress is computed by ordering and interpreting Events
 
-The graph must:
-* Use **one unified `Event` concept**
-* Avoid introducing a separate `Progress` label or node
+### Key Rule
 
-### What an Event Represents
+> If it happened at a specific time → it is an Event
+> If it summarizes history → it is a query result
 
-An `Event` represents **something that happened at a specific point in time**.
+### Result
 
-Examples:
-* A meeting occurred
-* A statement was made
-* A budget decision was communicated
-* A contract was signed
-* An installation started
+* Append-only history
+* Full auditability
+* No conflicting states
 
-Events may represent:
-* Interactions
-* External business changes
-* Decisions
-* Milestones
-* State changes (as facts, not as current status)
+---
 
-### What Progress Is (and Is Not)
+## 5. Challenge: When to Create Relationships Between Companies
 
-**Progress is NOT a thing that happens.**
+### Problem
 
-Progress is:
-* A **human interpretation**
-* A **summary over multiple events**
-* A **query result**
+In sales and partnerships, companies interact long before any deal exists.
 
-Examples of progress (DO NOT STORE):
-* “The opportunity is advancing”
-* “This deal is stalled”
-* “We are close to closing”
+Creating Company–Company relationships too early causes:
 
-These statements depend on:
-* Time
-* Context
-* Business logic
+* False claims
+* Role confusion
+* Data that becomes wrong later
 
-They must remain **derived**, not stored.
+### Decision
 
-### How Progress Is Computed
+**Companies are connected only by commitments, never by intention.**
 
-Progress is determined by:
-* Ordering events by time
-* Interpreting the latest relevant events
-* Applying business rules in the agent or application layer
+* Company–Company relationships exist only if:
 
-> **If something summarizes history, it must be computed, not persisted.**
+  * A Contract exists
+  * An Order exists
+* Prospects and leads are derived from Events, not relationships
 
-### Why There Is No `Progress` Node
+### Result
 
-Introducing a `Progress` node:
-* Encodes inference as fact
-* Duplicates event information
-* Requires mutation or overwrite
-* Breaks auditability
+* Company graph represents reality, not hope
+* Intent remains contextual and explainable
+* Historical accuracy is preserved
 
-These outcomes directly violate the **Facts First** principle.
+---
 
-### Append-Only History Rule
+## 6. Challenge: Products, Parts, SKUs, and Physical Assets
 
-> **Reality advances by adding new events, never by mutating old ones.**
+### Problem
 
-If something appears to “change state”:
-* Record a new Event
-* Do not update or replace prior meaning
+Products can be:
 
-### One-Line Rule
+* Abstract models
+* Variants (SKUs)
+* Physical instances (equipment)
+* Reusable across models (e.g. batteries)
 
-> **If it happened at a time, it is an Event.
-> If it summarizes what happened, it is a query.**
+### Decision
 
-### Validation Question
+We separate **conceptual layers**:
 
-Before adding a new label or node, ask:
+* `Product` = abstract model or family
+* `SKU` = commercial variant
+* `Equipment` = physical instance
 
-> **“Did this thing happen at a specific time?”**
+Key rule:
 
-If **yes** → Event
-If **no** → Derived concept (do not store)
+> **Equipment is an instance of a Product, not the Product itself.**
+
+### Result
+
+* Clear separation of commerce vs reality
+* Supports asset tracking, service, and lifecycle
+* Avoids product/asset confusion
+
+---
+
+## 7. Challenge: Classification Without Semantic Overload
+
+### Problem
+
+Categories like:
+
+* Industry
+* Product category
+* Territory
+
+are useful but dangerous if misused as roles.
+
+### Decision
+
+Classifications are:
+
+* Separate nodes
+* Purely descriptive
+* Never behavior-implying
+
+Example:
+
+* Product belongs to category “Cleaning Robot”
+* This does NOT imply capability, usage, or market position
+
+### Result
+
+* Clean taxonomy
+* No role leakage
+* Safe for LLM extraction
+
+---
+
+## 8. Open Questions for Validation with Neo4j
+
+We believe this approach is sound, but want to validate:
+
+* Does this scale well for high-event-volume graphs?
+* Are there known anti-patterns with Event-heavy models?
+* How do others balance intent vs fact in practice?
+* Are there Neo4j features (temporal, constraints, patterns) we should leverage more?
+
+---
+
+## Summary Position
+
+* Facts describe the world
+* Intent describes belief and planning
+* Events describe change over time
+* Relationships represent commitments
+* Everything else is derived
+
+We believe this maximizes correctness, flexibility, and long-term value —
+and we want to pressure-test this with real Neo4j experience.
