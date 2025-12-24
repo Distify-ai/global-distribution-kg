@@ -1,18 +1,19 @@
 # Global Distribution Schema V2 (Rich Fact-First)
 
-> **Core Principle**: Store Universal Facts. Roles are derived from Relationships.
-> **Structure**: Facts (Commitments), Intent (Plans), Events (History), Provenance (Evidence).
-> **LLM Rule**: Do not infer roles (e.g., `:Manufacturer`, `:Customer`) as node labels. Extract only what is explicitly stated or strictly implied by a verb (e.g., "manufactures" -> `[:MANUFACTURES]`).
-> **Single Entity Rule**: There is only one thing: `Product`. "Part", "Accessory", and "Component" are contextual roles derived from relationships.
-> **Commercial Link Rule**: Companies are connected by Commitments (`CommercialRelationship` node), not by intentions or roles. If there is no signed contract, there is no relationship.
+> **Core Philosophy**: We model the **Universal Facts** of the business (what physically or legally happened), not the **Roles** (how we interpret those facts).
+> 
+> *   **Facts (Immutable)**: "Acme Corp signed a contract." "Robot #123 was shipped."
+> *   **Roles (Derived)**: "Acme is a Customer." "Robot #123 is Inventory." (These are queries, not stored data).
 
 ---
 
-## 1. Organization Entities
+## 1. Organization & Core Entities
 
 ### `Company`
-A legal or physical business entity.
-*   **LLM Rule**: Extract any named organization, business, non-profit, or government entity. Do not create separate nodes for branches unless they are legally distinct subsidiaries.
+**Definition**: A `Company` node represents any legal or formalized organization that exists independently in the real world. This includes registered corporations, non-profit organizations, government bodies, and clearly defined business units that operate with autonomy. It serves as the single source of truth for an entity's identity, regardless of the multiple roles it may play over time (e.g., a company can simultaneously be a manufacturer, a customer, and a partner).
+
+**Extraction Guide**: Create a `Company` node whenever a named organization is identified as an actor in a business context. Do **not** create separate nodes for different functional roles (e.g., do not create a "Supplier Record" node and a "Customer Record" node for the same entity). If an organization has multiple branches, only model them as separate `Company` nodes if they are legally distinct subsidiaries or require separate financial tracking; otherwise, treat them as the same entity.
+
 *   **Properties**:
     *   `companyId` (UUID) - Unique system identifier.
     *   `legalName` (string) - Formal registered name (e.g., "Acme Corp Ltd.").
@@ -25,8 +26,10 @@ A legal or physical business entity.
     *   `stockSymbol` (string) - If public.
 
 ### `Person`
-A human being, typically an employee, contact, or executive.
-*   **LLM Rule**: Extract named individuals. Do not create nodes for generic roles like "The Manager".
+**Definition**: A `Person` node represents a specific human individual who interacts with the business ecosystem. This entity captures their professional identity and contact details, anchored to the reality of their existence rather than their temporary influence or sentiment.
+
+**Extraction Guide**: Extract a `Person` node for any named individual mentioned in emails, meetings, contracts, or organizational charts. Do **not** attempt to model subjective attributes like "champion", "decision-maker", or "influencer" as node labels or static properties, as these are fluid assessments (represented by `Intent` or `Events`). A person's `jobTitle` is a universal fact; their strategic value is a derived insight.
+
 *   **Properties**:
     *   `personId` (UUID) - Unique identifier.
     *   `fullName` (string) - First and last name.
@@ -38,8 +41,10 @@ A human being, typically an employee, contact, or executive.
     *   `linkedinUrl` (url) - Social profile.
 
 ### `Site`
-A physical location (warehouse, office, customer site, repair center).
-*   **LLM Rule**: Extract distinct physical locations. Differentiate from `Company` (the entry) vs `Site` (the bricks-and-mortar place).
+**Definition**: A `Site` node represents a distinct, physical location on Earth where business operations, storage, or interactions occur. This includes warehouses, corporate offices, retail stores, data centers, and customer facilities where equipment is installed.
+
+**Extraction Guide**: Differentiate carefully between a `Company` (the legal entity) and a `Site` (the bricks-and-mortar location). A Company *operates* or *owns* a Site. Inventory is stored at a `Site`, not at a `Company`. Even if a company has only one location, model the `Site` separately to allow for future expansion and precise logistics tracking.
+
 *   **Properties**:
     *   `siteId` (UUID) - Unique identifier.
     *   `name` (string) - Descriptive name (e.g., "Northwing Warehouse").
@@ -50,12 +55,13 @@ A physical location (warehouse, office, customer site, repair center).
     *   `capacity_sqm` (number) - Usage size if specified.
 
 ### `Equipment`
-A specific physical instance of a Product (e.g., a specific robot with a serial number).
-*   **Principle**: **Products are what you sell. Equipment is what exists.**
-*   **LLM Rule**: Only extract if a specific serial number or unique physical asset is mentioned. For general product models, use `Product`.
+**Definition**: An `Equipment` node represents a specific, tangible physical asset that exists in the real world. unlike a `Product` (which is a conceptual model), `Equipment` is the actual hardware instance that can be touched, shipped, repaired, and tracked by a unique identifier (like a serial number).
+
+**Extraction Guide**: Create an `Equipment` node only when referring to a specific physical unit (e.g., "The robot with serial #123 needs service"). Do **not** confuse this with the general concept of the product model. If a customer buys five robots, there are five `Equipment` nodes, all linked to one `Product` model node.
+
 *   **Properties**:
     *   `equipmentId` (UUID) - Unique identifier.
-    *   `serialNumber` (string) - The manufacturer's serial.
+    *   `serialNumber` (string) - The manufacturer's unique mark.
     *   `assetTag` (string) - Internal tracking tag.
     *   `firmwareVersion` (string) - Current software version.
     *   `commissionedAt` (timestamp) - Date put into service.
@@ -66,264 +72,222 @@ A specific physical instance of a Product (e.g., a specific robot with a serial 
 ## 2. Classification Entities
 
 ### `Territory`
-Geographical or commercial Zone.
-*   **LLM Rule**: Extract named sales regions or commercial zones.
+**Definition**: A `Territory` node defines a meaningful geographic or commercial zone used for operational organization. This can be strictly political (countries, continents) or purely commercial (sales regions like "EMEA" or "North America East").
+
+**Extraction Guide**: Use `Territory` to model the "where" of business responsibilities. Companies operate in Territories; Sales People are assigned to Territories. Do not confuse this with simple address fields; Territories are structural nodes used for grouping and logic.
+
 *   **Properties**:
-    *   `territoryId` (UUID) - Unique identifier.
-    *   `name` (string) - Name (e.g., "EMEA", "North America", "France").
+    *   `territoryId` (UUID).
+    *   `name` (string) - E.g., "EMEA", "North America", "France".
     *   `type` (enum) - `Country`, `Region`, `Continent`, `SalesZone`.
-    *   `isoCode` (string) - ISO 3166 code if applicable (e.g., "FR", "US-CA").
+    *   `isoCode` (string) - ISO 3166 code if applicable.
 
 ### `Industry`
-Business classification (ISIC).
-*   **LLM Rule**: Classification codes for business sectors.
+**Definition**: An `Industry` node represents a standard economic classification that describes a company's primary business activity. We use standard taxonomies (like ISIC or NAICS) to ensure objective classification.
+
+**Extraction Guide**: Map companies to `Industry` nodes to describe *what they do* fundamentally (e.g., "Manufacturing", "Retail"), not their relationship to us. Do not use this for ad-hoc grouping like "High Value Targets"; that is a `Goal` or `Opportunity` property.
+
 *   **Properties**:
-    *   `industryId` (UUID) - Unique identifier.
-    *   `isicCode` (string) - Semantic code.
-    *   `title` (string) - Standardized industry name (e.g., "Manufacturing of Electronics").
+    *   `industryId` (UUID).
+    *   `isicCode` (string).
+    *   `title` (string) - E.g., "Manufacturing of Electronics".
 
 ---
 
 ## 3. Product Entities
-### `ProductCategory`
-Taxonomic classification for products.
-*   **LLM Rule**: Extract clear product categories (e.g., "Cleaning Robot", "Mowing Robot"). Do NOT use for temporary features.
-*   **Properties**:
-    *   `categoryId` (UUID) - Unique identifier.
-    *   `name` (string) - Category name (e.g., "Commercial Scrubbers").
-    *   `description` (string) - Scope of the category.
 
 ### `Product`
-A model, family, component, or item offered for sale or used in assembly.
-*   **LLM Rule**: Extract any sellable item, model, component, or spare part. Use `type` as a hint, not a strict schema classification. **Everything is a Product.**Categories are handled via `BELONGS_TO_CATEGORY` relationships.
+**Definition**: A `Product` node represents an abstract model, family, or item defined in a manufacturer's catalog. It is the conceptual "idea" of the item, holding all specifications, marketing descriptions, and manufacturing details that apply to every unit of that type.
+
+**Extraction Guide**: Create a `Product` node for every unique model or item offered. This includes finished goods (robots), major components (batteries), and consumables. Remember: "The T-800" is a `Product`; "Arnold's T-800" is `Equipment`.
+
 *   **Properties**:
-    *   `productId` (UUID) - Unique identifier.
+    *   `productId` (UUID).
     *   `modelName` (string) - Commercial name (e.g., "T-800", "Battery-Pack-50").
-    *   `brand` (string) - Brand name if different from Manufacturer.
-    *   `type` (string) - Optional hint (e.g., "Robot", "Battery", "Sensor", "Consumable").
+    *   `brand` (string) - Brand name.
+    *   `type` (string) - Hint (e.g., "Robot", "Battery", "Sensor").
     *   `description` (string) - Marketing description.
 
 ### `SKU`
-Specific stock keeping unit for a product (commercial variant).
-*   **LLM Rule**: Use when specific sales configurations (colors, packs, region-specific plugs) are mentioned.
+**Definition**: A `SKU` (Stock Keeping Unit) node represents a specific, purchasable configuration of a `Product`. While the `Product` defines the technical model, the `SKU` defines the commercial package, including specific power cords, color options, bundle contents, and pricing.
+
+**Extraction Guide**: Use `SKU` when specific sales configurations are discussed (e.g., "T-800 with EU Plug"). This allows separating commercial packaging from engineering specifications.
+
 *   **Properties**:
     *   `sku` (string) - Unique string identifier.
-    *   `name` (string) - Sales name (e.g., "T-800-Midnight-Black").
+    *   `name` (string) - Sales name.
     *   `currency` (string) - Currency code.
     *   `listPrice` (number) - Standard price.
 
+### `ProductCategory`
+**Definition**: A `ProductCategory` node represents a taxonomic group used to organize products into broader families (e.g., "Cleaning Robots", "Mowing Robots").
+
+**Extraction Guide**: Use categories for stable, long-term classification. Avoid creating categories for temporary marketing campaigns (e.g., "Summer Sale Items").
+
+*   **Properties**: `categoryId`, `name`, `description`.
+
 ---
 
-## 4. Business Commitments (Facts)
-> **Rule**: These exist ONLY if a formal agreement or transaction has occurred.
+## 4. Business Commitments (The Ledger)
+> **CRITICAL RULE**: These entities exist ONLY if verified by a document (Contract, Order). We do not imply them.
 
 ### `CommercialRelationship`
-A reified long-term commercial bond between companies (e.g., Franchise, Partnership).
-*   **LLM Rule**: Create ONLY if there is an explicit mention of a signed agreement/contract defining the relationship. Do NOT create for prospective or informal links.
+**Definition**: A `CommercialRelationship` node represents a formal, legally binding bond between two business entities. It reifies the abstract concept of "partnership" into a concrete node backed by dates, types, and statuses.
+
+**Extraction Guide**: **Trap Alert**: Do NOT create this node for "Prospects", "Leads", or casual "Partners". Those are `Intent` states. Identify a `CommercialRelationship` ONLY when there is evidence of a signed agreement establishing a long-term status, such as "Authorized Distributor", "Franchisee", or "Contracted Vendor".
+
 *   **Properties**:
-    *   `relationshipId` (UUID) - Unique identifier.
+    *   `relationshipId` (UUID).
     *   `type` (enum) - `Franchise`, `Partnership`, `ServiceAgreement`, `Distributorship`.
-    *   `status` (enum) - `Active`, `Expired`, `Terminated`, `Suspended`.
-    *   `startDate` (date) - Effective start.
-    *   `endDate` (date) - Effective end.
-
-### `Order`
-Confirmed transaction.
-*   **LLM Rule**: Extract ONLY confirmed orders. Quotes/Estimates are `Opportunities` or `Events`.
-*   **Properties**:
-    *   `orderId` (UUID) - Unique identifier.
-    *   `orderNumber` (string) - Visible reference ID.
-    *   `orderDate` (date) - Date of confirmation.
-    *   `status` (enum) - `Confirmed`, `Shipped`, `Paid`, `Cancelled`.
-    *   `currency` (string) - ISO currency code.
-    *   `totalAmount` (number) - Final value.
-
-### `OrderLine`
-Item details within an order.
-*   **Properties**:
-    *   `orderLineId` (UUID) - Unique identifier.
-    *   `quantity` (number) - Count.
-    *   `unitPrice` (number) - Price per unit.
-    *   `total` (number) - Line sum.
+    *   `status` (enum) - `Active`, `Expired`, `Terminated`.
+    *   `startDate` (date).
+    *   `endDate` (date).
 
 ### `Contract`
-Legal agreement document.
-*   **LLM Rule**: Extract formal signed agreements. The `Contract` backs the `CommercialRelationship`.
+**Definition**: A `Contract` node represents the actual physical or digital legal document that codifies a business agreement. It serves as the immutable "proof of truth" for any `CommercialRelationship` or major transaction.
+
+**Extraction Guide**: Create this node when a specific contract document is referenced (e.g., "Refer to the 2024 Master Service Agreement"). Every `CommercialRelationship` should ideally be `DEFINED_BY` a `Contract`.
+
 *   **Properties**:
-    *   `contractId` (UUID) - Unique identifier.
-    *   `referenceNumber` (string) - External contract ID.
-    *   `type` (enum) - `Distribution`, `Franchise`, `Service`, `NDA`, `Purchasing`.
-    *   `startDate` (date) - Effective date.
-    *   `endDate` (date) - Expiry date.
-    *   `status` (enum) - `Active`, `Expired`, `Terminated`.
+    *   `contractId` (UUID).
+    *   `referenceNumber` (string).
+    *   `type` (enum) - `Distribution`, `Franchise`, `Service`, `NDA`.
+    *   `status` (enum).
+
+### `Order`
+**Definition**: An `Order` node represents a confirmed, financial obligation to exchange goods or services for money. It is a transactional fact that cannot be undone, only updated via status changes.
+
+**Extraction Guide**: **Trap Alert**: Quotes, Estimates, and Pro-Forma Invoices are **not** Orders; they are `Opportunities` or `Events`. Only create an `Order` node when a purchase is confirmed (e.g., PO received, payment verified).
+
+*   **Properties**:
+    *   `orderId` (UUID).
+    *   `orderNumber` (string).
+    *   `status` (enum) - `Confirmed`, `Shipped`, `Paid`, `Cancelled`.
+    *   `totalAmount` (number).
+    *   `currency` (string).
+
+### `OrderLine`
+**Definition**: An `OrderLine` node represents a distinct line item within a parent `Order`. It captures the specific quantity and price of a single SKU being purchased.
+
+*   **Properties**: `quantity`, `unitPrice`, `total`.
 
 ---
 
-## 5. Business Intent (Plans)
-> **Rule**: These represent declared plans, beliefs, or objectives. They are NOT facts about the external world.
+## 5. Business Intent (The Pipeline)
+> **CRITICAL RULE**: These represent *Internal Beliefs* or *Plans*, not external reality.
 
 ### `Opportunity`
-Declared intent or belief that a deal may happen.
-*   **LLM Rule**: Extract sales leads, potential deals, or open negotiations.
+**Definition**: An `Opportunity` node represents an internal belief that a business transaction might occur in the future. It acts as a container for all sales activities, notes, and probability assessments related to a potential deal.
+
+**Extraction Guide**: Use this for anything that is "possible" but not "done". Sales leads, unqualified prospects, open negotiations, and sent proposals all live here. If a Company is a "Prospect", that means there is an active `Opportunity` related to them; it does NOT mean the Company node itself changes type.
+
 *   **Properties**:
-    *   `opportunityId` (UUID) - Unique identifier.
+    *   `opportunityId` (UUID).
     *   `name` (string) - Deal name.
-    *   `amount` (number) - Estimated value.
     *   `stage` (enum) - `Prospect`, `Qualified`, `Proposal`, `Negotiation`, `ClosedWon`, `ClosedLost`.
-    *   `confidence` (float) - 0.0 to 1.0 probability.
-    *   `expectedCloseDate` (date) - Forecast date.
+    *   `amount` (number).
+    *   `confidence` (float).
+    *   `expectedCloseDate` (date).
 
 ### `Goal`
-Declared strategic objective or target.
-*   **LLM Rule**: Extract stated business targets (e.g., "We aim to sell 500 units").
-*   **Properties**:
-    *   `goalId` (UUID) - Unique identifier.
-    *   `name` (string) - Summary (e.g., "100k GMV 2025").
-    *   `targetValue` (number) - Numeric target.
-    *   `metric` (string) - Unit of measure (e.g., "USD", "Units").
-    *   `timeScope` (string) - Period (e.g., "Q1 2025").
+**Definition**: A `Goal` node represents a declared strategic objective or quantitative target set by the organization. It allows linking daily activities and opportunities to broader corporate ambitions.
+
+**Extraction Guide**: Extract statements of intent (e.g., "We aim to sell 500 units in Q4") as `Goal` nodes. This allows the system to measure progress ('Facts') against desires ('Goals').
+
+*   **Properties**: `name`, `targetValue`, `metric`, `timeScope`.
 
 ---
 
-## 6. Events (Interactions)
-> **Rule**: All time-bound occurrences. Relationships (like "Prospect") are derived from these histories.
+## 6. Events (The Timeline)
+> **CRITICAL RULE**: If it happened at a specific time, it is an Event.
 
 ### `Event`
-Unified node for Interactions, Activities, and State Changes.
-*   **LLM Rule**: Extract any discrete event: meeting, email, status change, login, error log.
+**Definition**: An `Event` node represents a single, immutable point-in-time occurrence that is critical to the business history. It is the atomic unit of truth in the knowledge graph. This broad category encompasses **two key types offered**:
+1.  **Interactions**: External happenings like a webinar, a meeting, or an email.
+2.  **Critical State Changes**: Internal milestones like "Series B Fund Raised", "Budget Confirmed", "Deal Qualified", or "System Error Logged".
+If it happened at a specific timestamp and alters the state of the business, it is an `Event`.
+
+**Extraction Guide**: Model EVERYTHING that happens in time as an `Event`.
+*   **Do not just update properties**: Instead of just changing a Company's status to "Active", create a `StatusChange` event so we know *when* and *why* it happened.
+*   **Capture Milestones**: If a text says "Customer confirmed budget on Tuesday", create a `BudgetConfirmed` event linked to the Opportunity.
+*   **Granularity**: Only model events that have business significance. do not model every mouse click, but DO model every stage change in a sales pipeline.
+
 *   **Properties**:
-    *   `eventId` (UUID) - Unique identifier.
+    *   `eventId` (UUID).
     *   `eventCategory` (enum) - `Interaction`, `Activity`, `StateChange`, `SystemLog`.
-    *   `eventType` (string) - Specific type (e.g., `Call`, `Email`, `Meeting`, `OrderPlaced`, `TicketClosed`, `RelationshipExpired`).
-    *   `occurredAt` (timestamp) - Exact time.
-    *   `summary` (string) - Short text description.
-    *   `source` (string) - Origin system or reporter.
-    *   `durationMinutes` (integer) - Length of event if applicable.
+    *   `eventType` (string) - `Call`, `Meeting`, `Email`, `OrderPlaced`, `FundRaised`, `BudgetConfirmed`, `StageChange`.
+    *   `occurredAt` (timestamp).
+    *   `summary` (string).
+    *   `source` (string).
 
 ---
 
-## 7. Provenance (Evidence)
+## 7. Universal Fact Relationships (The Verbs)
 
-### `Source`
-Provenance Container (Infrastructure, not Knowledge).
-*   **LLM Rule**: The file, URL, or document where facts were extracted from.
-*   **Properties**:
-    *   `sourceId` (UUID) - Unique identifier.
-    *   `sourceType` (enum) - `PDF`, `Email`, `Chat`, `NewsArticle`, `WebPage`.
-    *   `uri` (string) - Location or Path.
-    *   `ingestedAt` (timestamp) - Processing time.
-    *   `title` (string) - Document title.
-
-### `Chunk`
-Evidence fragment supporting facts.
-*   **LLM Rule**: The specific paragraph or sentence used for extraction.
-*   **Properties**:
-    *   `chunkId` (UUID) - Unique identifier.
-    *   `text` (string) - The content.
-    *   `confidence` (float) - Extraction confidence.
-
----
-
-## 8. Universal Fact Relationships (The Verbs)
-
-### Organization & Structure
-| Relationship | Source | Target | Description / LLM Use Case |
+### Organization Structure
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `SUBSIDIARY_OF` | `Company` | `Company` | Explicit ownership structure (Child -> Parent). |
-| `PARENT_OF` | `Company` | `Company` | Inverse of Subsidiary (Parent -> Child). |
-| `HAS_SITE` | `Company` | `Site` | Company owns/operates a specific facility. |
-| `LOCATED_IN` | `Site` | `Territory` | Geographic placement of a facility. |
-| `WORKS_FOR` | `Person` | `Company` | Employment relationship. |
-| `OPERATES_IN` | `Company` | `Territory` | General presence in a region (use `DISTRIBUTES` for specific product rights). |
+| **`SUBSIDIARY_OF`** | `Company` | `Company` | **Legal ownership.** Company A owns Company B. |
+| **`LOCATED_IN`** | `Site` | `Territory` | **Geography.** The warehouse is physically in France. |
+| **`HAS_SITE`** | `Company` | `Site` | **Operations.** Company A operates this facility. |
+| **`WORKS_FOR`** | `Person` | `Company` | **Employment.** Person A is employed by Company B. |
+| **`OPERATES_IN`** | `Company` | `Territory` | **Presence.** Company A does business in Region B (General). |
 
 ### Commercial Links (The Bridge)
-| Relationship | Source | Target | Description / LLM Use Case |
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `HAS_RELATIONSHIP` | `Company` | `CommercialRelationship` | Connects parties to the relationship node. |
-| `DEFINED_BY` | `CommercialRelationship` | `Contract` | Links the relationship to the binding document. |
-| `RELATIONSHIP_CHANGED`| `CommercialRelationship` | `Event` | Tracks state updates (Renewal, Expiry). |
+| **`HAS_RELATIONSHIP`**| `Company` | `CommRel` | **Structure.** Connects a company to a formal relationship node. |
+| **`DEFINED_BY`** | `CommRel` | `Contract` | **Proof.** This relationship is valid because this Contract exists. |
+| **`RELATIONSHIP_CHANGED`**| `CommRel` | `Event` | **History.** The relationship was renewed/terminated at this time. |
 
-### Commercial Transactions (Commitments)
-| Relationship | Source | Target | Description / LLM Use Case |
+### Transactions (The Trade)
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `PLACED_ORDER` | `Company` | `Order` | Purchaser initiating a transaction. |
-| `SOLD_BY` | `Order` | `Company` | Seller in a transaction. |
-| `CONTAINS_LINE` | `Order` | `OrderLine` | Structure of an order. |
-| `REFERENCES_SKU` | `OrderLine` | `SKU` | Specific item ordered. |
-| `BINDS_COMPANY` | `Contract` | `Company` | Party to a contract. |
-| `OWNS_ASSET` | `Company` | `Equipment` | Legal ownership of specific equipment. |
+| **`PLACED_ORDER`** | `Company` | `Order` | **The Buyer.** Entity paying for the goods. |
+| **`SOLD_BY`** | `Order` | `Company` | **The Seller.** Entity receiving the money. |
+| **`CONTAINS_LINE`** | `Order` | `OrderLine` | **Detail.** Breaking down the cart. |
+| **`REFERENCES_SKU`** | `OrderLine` | `SKU` | **Item.** What was actually bought. |
+| **`BINDS_COMPANY`** | `Contract` | `Company` | **Signatory.** Who signed the legal doc. |
+| **`OWNS_ASSET`** | `Company` | `Equipment` | **Asset.** Legal title holder of the machine. |
 
-### Supply Chain & Manufacturing
-| Relationship | Source | Target | Description / LLM Use Case |
+### Supply Chain & Product
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `MANUFACTURES` | `Company` | `Product` | Company creates/builds the product. |
-| `DISTRIBUTES` | `Company` | `Product` | Company distributes a product (can be inferred from CommercialRelationship). |
-| `STORES` | `Site` | `Product` | Inventory held at a location. |
-| `SHIPPED_FROM` | `Order` | `Site` | Logistics origin. |
+| **`MANUFACTURES`** | `Company` | `Product` | **Maker.** Entity that builds the product model. |
+| **`DISTRIBUTES`** | `Company` | `Product` | **Rights.** Entity authorized to sell this model (Explicit rights). |
+| **`STORES`** | `Site` | `Product` | **Inventory.** Goods physically located here. |
+| **`INSTANCE_OF`** | `Equipment` | `Product` | **Type.** "This unit is a T-800". |
+| **`INSTALLED_AT`** | `Equipment` | `Site` | **Location.** Machine is running at this site. |
 
-### Product Relationships
-| Relationship | Source | Target | Description / LLM Use Case |
+### Intent & Planning
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `BELONGS_TO_CATEGORY`| `Product` | `ProductCategory` | Explicit taxonomy classification. |
-| `HAS_VARIANT` | `Product` | `SKU` | Product available as a specific commercial SKU (e.g., color, pack size). |
-| `USES_COMPONENT` | `Product` | `Product` | Product requires another Product as a part (Assembly). |
-| `COMPATIBLE_WITH` | `Product` | `Product` | Product works with another (e.g., Battery works with Robot). |
-| `REPLACES` | `Product` | `Product` | Product is a newer version of another. |
+| **`OWNS_OPPORTUNITY`**| `Person` | `Opp` | **Sales Rep.** Person working the deal. |
+| **`RELATED_TO_COMPANY`**| `Opp` | `Company` | **Prospect.** The potential customer. |
+| **`INVOLVES_PRODUCT`** | `Opp` | `Product` | **Interest.** What they want to buy. |
+| **`CONTRIBUTES_TO`** | `Opp` | `Goal` | **Strategy.** Deal helps hit this target. |
 
-### Intent & Planning (Uncertainty)
-| Relationship | Source | Target | Description / LLM Use Case |
+### Interaction History
+| Fact Pattern | Source | Target | Why Use This? |
 | :--- | :--- | :--- | :--- |
-| `OWNS_OPPORTUNITY` | `Person` | `Opportunity` | Sales rep managing a deal. |
-| `RELATED_TO_COMPANY` | `Opportunity` | `Company` | The prospect/customer involved in the potential deal. |
-| `INVOLVES_PRODUCT` | `Opportunity` | `Product` | Product being discussed. |
-| `CONTRIBUTES_TO` | `Opportunity` | `Goal` | Link deal value to a strategic target. |
-| `OWNS_GOAL` | `Person` | `Goal` | Person accountable for the metric. |
-
-### Equipment, Usage & Service
-| Relationship | Source | Target | Description / LLM Use Case |
-| :--- | :--- | :--- | :--- |
-| `INSTANCE_OF` | `Equipment` | `Product` | **Canonical link.** The equipment is a physical instance of `Product` model. |
-| `INSTALLED_AT` | `Equipment` | `Site` | Physical location of a machine. |
-| `MAINTAINS` | `Person` | `Equipment` | Technician servicing a machine. |
-| `SUPPORTED_BY` | `Equipment` | `Company` | Company responsible for SLA/Support. |
-
-### Events, Usage & Provenance
-| Relationship | Source | Target | Description / LLM Use Case |
-| :--- | :--- | :--- | :--- |
-| `PARTICIPATED_IN` | `Person` | `Event` | Attendee of a meeting/call. |
-| `ORGANIZED` | `Company` | `Event` | Host of an event. |
-| `SUBJECT_OF` | `Company` | `Event` | Topic of the event. |
-| `DISCUSSED` | `Event` | `Product` | Product mentioned in interaction. |
-| `GENERATED` | `Event` | `Opportunity` | Event that created the lead. |
-| `CHANGED_STATE_OF` | `Event` | `Opportunity` | Event that moved stage. |
-| `HAS_CHUNK` | `Source` | `Chunk` | Text segmentation. |
-| `MENTIONS` | `Chunk` | `AnyEntity` | Extraction link (Evidence). |
-| `SUPPORTS` | `Chunk` | `Event` | Evidence for an event happening. |
+| **`PARTICIPATED_IN`** | `Person` | `Event` | **Attendee.** Who was there? |
+| **`ORGANIZED`** | `Company` | `Event` | **Host.** Who ran the webinar/event? |
+| **`DISCUSSED`** | `Event` | `Product` | **Topic.** What did they talk about? |
+| **`GENERATED`** | `Event` | `Opp` | **Attribution.** Interaction led to deal. |
 
 ---
 
-## 9. Derived Roles (Query Examples)
+## 8. Role Derivation Matrix (The Interpreter)
+> **How to translate common business terms into Schema Facts**
 
-**Query: Who are the Active Franchises?**
-```cypher
-MATCH (hq:Company)-[:HAS_RELATIONSHIP]->(r:CommercialRelationship {type: 'Franchise', status: 'Active'})<-[:HAS_RELATIONSHIP]-(n:Company)
-RETURN n, hq
-```
+| If you see this Business Role... | Look for this Fact Pattern in the Graph |
+| :--- | :--- |
+| **Customer** | `(Company)-[:PLACED_ORDER]->(Order)` OR `(Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship {type: 'Service'})` |
+| **Prospect** | `(Opportunity)-[:RELATED_TO_COMPANY]->(Company)` (Where Opp is NOT ClosedWon) |
+| **Manufacturer** | `(Company)-[:MANUFACTURES]->(Product)` |
+| **Distributor** | `(Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship {type: 'Distributorship'})` |
+| **Supplier** | `(Order)-[:SOLD_BY]->(Company)` (Where WE are the buyer) |
+| **Inventory** | `(Site)-[:STORES]->(Product)` OR `(:Equipment {status: 'Inventory'})` |
+| **Active Franchise** | `(Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship {type: 'Franchise', status: 'Active'})` |
 
-**Query: Find all Cleaning Robots (via Category)**
-```cypher
-MATCH (p:Product)-[:BELONGS_TO_CATEGORY]->(c:ProductCategory {name: 'CleaningRobot'})
-RETURN p
-```
-
-**Query: Which companies own "Skywalker-50" units?**
-```cypher
-MATCH (c:Company)-[:OWNS_ASSET]->(e:Equipment)-[:INSTANCE_OF]->(p:Product {modelName: "Skywalker-50"})
-RETURN DISTINCT c
-```
-
-**Query: What are the spare parts for "Skywalker-50"?**
-```cypher
-MATCH (p:Product {modelName: "Skywalker-50"})-[:USES_COMPONENT]->(component:Product)
-RETURN component
-```
+---
