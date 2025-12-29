@@ -1,9 +1,9 @@
-# Global Distribution Schema V2 (Rich Fact-First)
+# Global Distribution Schema V3 (The Wisdom Graph)
 
-> **Core Philosophy**: We model the **Universal Facts** of the business (what physically or legally happened), not the **Roles** (how we interpret those facts).
+> **Core Philosophy**: We model the **Universal Facts** (what happened) and the **Causal Wisdom** (why it changed).
 > 
-> *   **Facts (Immutable)**: "Acme Corp signed a contract." "Robot #123 was shipped."
-> *   **Roles (Derived)**: "Acme is a Customer." "Robot #123 is Inventory." (These are queries, not stored data).
+> *   **Facts (Immutable)**: "Shipment #99 departed."
+> *   **Wisdom (Context)**: "Order status changed to 'Shipped' because Shipment #99 departed."
 
 ---
 
@@ -154,6 +154,18 @@
     *   `type` (enum) - `Distribution`, `Franchise`, `Service`, `NDA`.
     *   `status` (enum).
 
+### `PriceList`
+**Definition**: A PriceList node represents a standardized collection of pricing rules or specific SKU prices agreed upon for a segment of customers. It acts as a "Standing Commitment" that exists before any order is placed.
+
+**Extraction Guide**: Extract this when documents refer to "2025 European Distributor Price Book", "Tier 1 Pricing", or specific discount tables in a contract.
+
+*   **Properties**:
+    *   `pricelistId` (UUID).
+    *   `name` (string) - E.g., "Global Distributor Tier 1".
+    *   `currency` (string).
+    *   `validFrom` (date).
+    *   `validTo` (date).
+
 ### `Order`
 **Definition**: An `Order` node represents a confirmed, financial obligation to exchange goods or services for money. It is a transactional fact that cannot be undone, only updated via status changes.
 
@@ -173,7 +185,25 @@
 
 ---
 
-## 5. Business Intent (The Pipeline)
+## 5. Logistics (The Physics)
+
+### `Shipment`
+**Definition**: A Shipment node represents a physical consolidation of goods moving from one Site to another. It is a "Transient Entity"—it exists physically (you can touch the pallet), but only for a limited duration.
+
+**Extraction Guide**: Create this when you see Tracking Numbers, Bills of Lading (BOL), or Carrier references. An Order is a financial request; a Shipment is the physical response. One Order can split into two Shipments; two Orders can merge into one Shipment.
+
+*   **Properties**:
+    *   `shipmentId` (UUID).
+    *   `trackingNumber` (string).
+    *   `carrier` (string) - E.g., "DHL", "Maersk".
+    *   `status` (enum) - `Ready`, `InTransit`, `CustomsHold`, `Delivered`, `Exception`.
+    *   `shippedAt` (timestamp).
+    *   `estimatedDelivery` (timestamp).
+    *   `weight_kg` (number).
+
+---
+
+## 6. Business Intent (The Pipeline)
 > **CRITICAL RULE**: These represent *Internal Beliefs* or *Plans*, not external reality.
 
 ### `Opportunity`
@@ -198,31 +228,28 @@
 
 ---
 
-## 6. Events (The Timeline)
-> **CRITICAL RULE**: If it happened at a specific time, it is an Event.
+## 7. Events (The Wisdom Engine)
+> **CRITICAL RULE**: If it happened at a specific time, it is an Event. To capture "Wisdom," we explicitly track if this event caused a status change and why.
 
 ### `Event`
-**Definition**: An `Event` node represents a single, immutable point-in-time occurrence that is critical to the business history. It is the atomic unit of truth in the knowledge graph. This broad category encompasses **two key types offered**:
-1.  **Interactions**: External happenings like a webinar, a meeting, or an email.
-2.  **Critical State Changes**: Internal milestones like "Series B Fund Raised", "Budget Confirmed", "Deal Qualified", or "System Error Logged".
-If it happened at a specific timestamp and alters the state of the business, it is an `Event`.
+**Definition**: An `Event` node represents a single, immutable point-in-time occurrence.
 
-**Extraction Guide**: Model EVERYTHING that happens in time as an `Event`.
-*   **Do not just update properties**: Instead of just changing a Company's status to "Active", create a `StatusChange` event so we know *when* and *why* it happened.
-*   **Capture Milestones**: If a text says "Customer confirmed budget on Tuesday", create a `BudgetConfirmed` event linked to the Opportunity.
-*   **Granularity**: Only model events that have business significance. do not model every mouse click, but DO model every stage change in a sales pipeline.
+**Extraction Guide**: Model EVERYTHING that happens in time. If an event causes a status change (e.g., "Customer Email" causes Opportunity to move to "Negotiation"), capture that causal link in the properties.
 
 *   **Properties**:
     *   `eventId` (UUID).
     *   `eventCategory` (enum) - `Interaction`, `Activity`, `StateChange`, `SystemLog`.
-    *   `eventType` (string) - `Call`, `Meeting`, `Email`, `OrderPlaced`, `FundRaised`, `BudgetConfirmed`, `StageChange`.
+    *   `eventType` (string) - `Call`, `Meeting`, `Email`, `OrderPlaced`, `FundRaised`, `LogisticsUpdate`.
     *   `occurredAt` (timestamp).
-    *   `summary` (string).
-    *   `source` (string).
+    *   `summary` (string) - What happened?
+    *   `source` (string) - Where did this info come from?
+    *   `resultedInStatusChange` (boolean) - Did this change the state of a parent entity?
+    *   `newStatusValue` (string) - The status applied (e.g., "Negotiating", "Arrived").
+    *   `triggerReason` (string) - The "Wisdom" (e.g., "Customer requested pricing", "Vessel docked at port").
 
 ---
 
-## 7. Provenance (Evidence)
+## 8. Provenance (Evidence)
 
 ### `Source`
 Provenance Container (Infrastructure, not Knowledge).
@@ -244,7 +271,7 @@ Evidence fragment supporting facts.
 
 ---
 
-## 8. Universal Fact Relationships (The Verbs)
+## 9. Universal Fact Relationships (The Verbs)
 
 ### Organization Structure
 
@@ -331,6 +358,34 @@ Evidence fragment supporting facts.
 *   **Definition**: Active location.
 *   **Usage**: The machine is currently installed and running at this site.
 
+### Logistics & Fulfillment Links
+
+#### `(:Order)-[:FULFILLED_BY]->(:Shipment)`
+*   **Definition**: Fulfillment Link.
+*   **Usage**: "This specific Order is inside this Shipment." (Note: Many-to-Many is possible).
+
+#### `(:Shipment)-[:ORIGINATED_FROM]->(:Site)`
+*   **Definition**: The starting point.
+*   **Usage**: Which warehouse did the truck leave from?
+
+#### `(:Shipment)-[:DESTINED_FOR]->(:Site)`
+*   **Definition**: The endpoint.
+*   **Usage**: Where is this box going? (Allows calculating "Inventory in Transit").
+
+#### `(:Shipment)-[:CURRENTLY_LOCATED_AT]->(:Site)`
+*   **Definition**: Checkpoint scanning.
+*   **Usage**: "The shipment is currently scanning at the 'Customs Depot' site."
+
+### Pricing Links
+
+#### `(:Company)-[:ELIGIBLE_FOR]->(:PriceList)`
+*   **Definition**: The Pricing Strategy.
+*   **Usage**: "Acme Corp is entitled to 'Tier 1' pricing."
+
+#### `(:PriceList)-[:PRICES_SKU {amount: 100}]->(:SKU)`
+*   **Definition**: The Price Point.
+*   **Usage**: "On this price list, this SKU costs $100."
+
 ### Intent & Planning
 
 #### `(:Person)-[:OWNS_OPPORTUNITY]->(:Opportunity)`
@@ -349,7 +404,7 @@ Evidence fragment supporting facts.
 *   **Definition**: Strategic alignment.
 *   **Usage**: This deal helps achieve this specific corporate goal.
 
-### Interaction History
+### Interaction History & Wisdom
 
 #### `(:Person)-[:PARTICIPATED_IN]->(:Event)`
 *   **Definition**: Event attendance.
@@ -367,9 +422,14 @@ Evidence fragment supporting facts.
 *   **Definition**: Pipeline attribution.
 *   **Usage**: This interaction directly led to the creation of this deal.
 
+#### `(:Event)-[:CHANGED_STATUS_OF]->(:Entity)`
+*   **Definition**: The Causal Link.
+*   **Usage**: Connects the Event (The Cause) to the Entity (The Effect).
+*   **Example**: (Event: "Meeting")-[:CHANGED_STATUS_OF]->(Opportunity: "Big Deal"). This edge proves why the status changed.
+
 ---
 
-## 9. Role Derivation Matrix (The Interpreter)
+## 10. Role Derivation Matrix (The Interpreter)
 > **How to translate common business terms into Schema Facts**
 
 | If you see this Business Role... | Look for this Fact Pattern in the Graph |
@@ -381,5 +441,3 @@ Evidence fragment supporting facts.
 | **Supplier** | `(Order)-[:SOLD_BY]->(Company)` (Where WE are the buyer) |
 | **Inventory** | `(Site)-[:STORES]->(Product)` OR `(:Equipment {status: 'Inventory'})` |
 | **Active Franchise** | `(Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship {type: 'Franchise', status: 'Active'})` |
-
----
