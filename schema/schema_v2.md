@@ -222,62 +222,154 @@ If it happened at a specific timestamp and alters the state of the business, it 
 
 ---
 
-## 7. Universal Fact Relationships (The Verbs)
+## 7. Provenance (Evidence)
 
-### Organization Structure
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`SUBSIDIARY_OF`** | `Company` | `Company` | **Legal ownership.** Company A owns Company B. |
-| **`LOCATED_IN`** | `Site` | `Territory` | **Geography.** The warehouse is physically in France. |
-| **`HAS_SITE`** | `Company` | `Site` | **Operations.** Company A operates this facility. |
-| **`WORKS_FOR`** | `Person` | `Company` | **Employment.** Person A is employed by Company B. |
-| **`OPERATES_IN`** | `Company` | `Territory` | **Presence.** Company A does business in Region B (General). |
+### `Source`
+Provenance Container (Infrastructure, not Knowledge).
+*   **LLM Rule**: The file, URL, or document where facts were extracted from.
+*   **Properties**:
+    *   `sourceId` (UUID) - Unique identifier.
+    *   `sourceType` (enum) - `PDF`, `Email`, `Chat`, `NewsArticle`, `WebPage`.
+    *   `uri` (string) - Location or Path.
+    *   `ingestedAt` (timestamp) - Processing time.
+    *   `title` (string) - Document title.
 
-### Commercial Links (The Bridge)
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`HAS_RELATIONSHIP`**| `Company` | `CommRel` | **Structure.** Connects a company to a formal relationship node. |
-| **`DEFINED_BY`** | `CommRel` | `Contract` | **Proof.** This relationship is valid because this Contract exists. |
-| **`RELATIONSHIP_CHANGED`**| `CommRel` | `Event` | **History.** The relationship was renewed/terminated at this time. |
-
-### Transactions (The Trade)
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`PLACED_ORDER`** | `Company` | `Order` | **The Buyer.** Entity paying for the goods. |
-| **`SOLD_BY`** | `Order` | `Company` | **The Seller.** Entity receiving the money. |
-| **`CONTAINS_LINE`** | `Order` | `OrderLine` | **Detail.** Breaking down the cart. |
-| **`REFERENCES_SKU`** | `OrderLine` | `SKU` | **Item.** What was actually bought. |
-| **`BINDS_COMPANY`** | `Contract` | `Company` | **Signatory.** Who signed the legal doc. |
-| **`OWNS_ASSET`** | `Company` | `Equipment` | **Asset.** Legal title holder of the machine. |
-
-### Supply Chain & Product
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`MANUFACTURES`** | `Company` | `Product` | **Maker.** Entity that builds the product model. |
-| **`DISTRIBUTES`** | `Company` | `Product` | **Rights.** Entity authorized to sell this model (Explicit rights). |
-| **`STORES`** | `Site` | `Product` | **Inventory.** Goods physically located here. |
-| **`INSTANCE_OF`** | `Equipment` | `Product` | **Type.** "This unit is a T-800". |
-| **`INSTALLED_AT`** | `Equipment` | `Site` | **Location.** Machine is running at this site. |
-
-### Intent & Planning
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`OWNS_OPPORTUNITY`**| `Person` | `Opp` | **Sales Rep.** Person working the deal. |
-| **`RELATED_TO_COMPANY`**| `Opp` | `Company` | **Prospect.** The potential customer. |
-| **`INVOLVES_PRODUCT`** | `Opp` | `Product` | **Interest.** What they want to buy. |
-| **`CONTRIBUTES_TO`** | `Opp` | `Goal` | **Strategy.** Deal helps hit this target. |
-
-### Interaction History
-| Fact Pattern | Source | Target | Why Use This? |
-| :--- | :--- | :--- | :--- |
-| **`PARTICIPATED_IN`** | `Person` | `Event` | **Attendee.** Who was there? |
-| **`ORGANIZED`** | `Company` | `Event` | **Host.** Who ran the webinar/event? |
-| **`DISCUSSED`** | `Event` | `Product` | **Topic.** What did they talk about? |
-| **`GENERATED`** | `Event` | `Opp` | **Attribution.** Interaction led to deal. |
+### `Chunk`
+Evidence fragment supporting facts.
+*   **LLM Rule**: The specific paragraph or sentence used for extraction.
+*   **Properties**:
+    *   `chunkId` (UUID) - Unique identifier.
+    *   `text` (string) - The content.
+    *   `confidence` (float) - Extraction confidence.
 
 ---
 
-## 8. Role Derivation Matrix (The Interpreter)
+## 8. Universal Fact Relationships (The Verbs)
+
+### Organization Structure
+
+#### `(:Company)-[:SUBSIDIARY_OF]->(:Company)`
+*   **Definition**: Represents legal ownership where one company owns another.
+*   **Usage**: Company A owns Company B.
+
+#### `(:Site)-[:LOCATED_IN]->(:Territory)`
+*   **Definition**: Geographic binding of a physical site.
+*   **Usage**: The warehouse is physically located in a specific territory (e.g., France).
+
+#### `(:Company)-[:HAS_SITE]->(:Site)`
+*   **Definition**: Operational possession of a facility.
+*   **Usage**: Company A operates or leases this facility.
+
+#### `(:Person)-[:WORKS_FOR]->(:Company)`
+*   **Definition**: Primary Employment / Professional Home.
+*   **Usage**: Person A is employed by Company B (Payroll/Contract). 
+*   **Correction**: Do **NOT** use this for external partners working on a project. If a Partner works with us, they `WORKS_FOR` their own Company, and that Company `HAS_RELATIONSHIP` with us.
+
+#### `(:Company)-[:OPERATES_IN]->(:Territory)`
+*   **Definition**: General commercial presence in a region.
+*   **Usage**: Company A does business in Region B (e.g., Sales presence).
+
+### Commercial Links (The Bridge)
+
+#### `(:Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship)`
+*   **Definition**: Structural link to a formal relationship node.
+*   **Usage**: Connects a company to the node storing relationship details (dates, type).
+
+#### `(:CommercialRelationship)-[:DEFINED_BY]->(:Contract)`
+*   **Definition**: Evidentiary link to the contract.
+*   **Usage**: This relationship is valid and defined by this specific Contract.
+
+#### `(:CommercialRelationship)-[:RELATIONSHIP_CHANGED]->(:Event)`
+*   **Definition**: Audit trail of relationship status changes.
+*   **Usage**: The relationship was renewed, terminated, or changed at this specific time.
+
+### Transactions (The Trade)
+
+#### `(:Company)-[:PLACED_ORDER]->(:Order)`
+*   **Definition**: The purchasing act. (Buyer -> Order)
+*   **Usage**: Entity paying for the goods.
+
+#### `(:Order)-[:SOLD_BY]->(:Company)`
+*   **Definition**: The selling act. (Order -> Seller)
+*   **Usage**: Entity receiving the money and fulfilling the order.
+
+#### `(:Order)-[:CONTAINS_LINE]->(:OrderLine)`
+*   **Definition**: Granular breakdown of an order.
+*   **Usage**: Links the parent order to its specific line items.
+
+#### `(:OrderLine)-[:REFERENCES_SKU]->(:SKU)`
+*   **Definition**: Item specification.
+*   **Usage**: Specifies exactly what product configuration was purchased.
+
+#### `(:Contract)-[:BINDS_COMPANY]->(:Company)`
+*   **Definition**: Legal signatory.
+*   **Usage**: Identifies the parties who signed the legal document.
+
+#### `(:Company)-[:OWNS_ASSET]->(:Equipment)`
+*   **Definition**: Asset ownership.
+*   **Usage**: Legal title holder of the machine.
+
+### Supply Chain & Product
+
+#### `(:Company)-[:MANUFACTURES]->(:Product)`
+*   **Definition**: Product origin.
+*   **Usage**: Entity that designs and builds the product model.
+
+#### `(:Company)-[:DISTRIBUTES]->(:Product)`
+*   **Definition**: Commercial rights.
+*   **Usage**: Entity authorized to sell this specific model (Explicit rights).
+
+#### `(:Site)-[:STORES]->(:Product)`
+*   **Definition**: Physical inventory holding.
+*   **Usage**: Goods are physically located at this site.
+
+#### `(:Equipment)-[:INSTANCE_OF]->(:Product)`
+*   **Definition**: Model instantiation.
+*   **Usage**: "This specific unit (Equipment) is a T-800 (Product)."
+
+#### `(:Equipment)-[:INSTALLED_AT]->(:Site)`
+*   **Definition**: Active location.
+*   **Usage**: The machine is currently installed and running at this site.
+
+### Intent & Planning
+
+#### `(:Person)-[:OWNS_OPPORTUNITY]->(:Opportunity)`
+*   **Definition**: Sales responsibility.
+*   **Usage**: The person actively working the deal.
+
+#### `(:Opportunity)-[:RELATED_TO_COMPANY]->(:Company)`
+*   **Definition**: Prospect association.
+*   **Usage**: The potential customer for this opportunity.
+
+#### `(:Opportunity)-[:INVOLVES_PRODUCT]->(:Product)`
+*   **Definition**: Customer interest.
+*   **Usage**: What the customer is interested in buying.
+
+#### `(:Opportunity)-[:CONTRIBUTES_TO]->(:Goal)`
+*   **Definition**: Strategic alignment.
+*   **Usage**: This deal helps achieve this specific corporate goal.
+
+### Interaction History
+
+#### `(:Person)-[:PARTICIPATED_IN]->(:Event)`
+*   **Definition**: Event attendance.
+*   **Usage**: Who attended the meeting or webinar?
+
+#### `(:Company)-[:ORGANIZED]->(:Event)`
+*   **Definition**: Event hosting.
+*   **Usage**: Who hosted or ran the event?
+
+#### `(:Event)-[:DISCUSSED]->(:Product)`
+*   **Definition**: Topic focus.
+*   **Usage**: What products were discussed?
+
+#### `(:Event)-[:GENERATED]->(:Opportunity)`
+*   **Definition**: Pipeline attribution.
+*   **Usage**: This interaction directly led to the creation of this deal.
+
+---
+
+## 9. Role Derivation Matrix (The Interpreter)
 > **How to translate common business terms into Schema Facts**
 
 | If you see this Business Role... | Look for this Fact Pattern in the Graph |
