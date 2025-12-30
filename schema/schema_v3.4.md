@@ -1,263 +1,150 @@
-# Global Distribution Schema V3 (The Wisdom Graph)
+# Global Distribution Schema V3.4 (Fact vs. Wisdom)
 
-> **Core Philosophy**: We model the **Universal Facts** (what happened) and the **Causal Wisdom** (why it changed).
+> **Core Philosophy**: The Graph is divided into **Layer 1: Universal Facts** (The immutable reality of "What Exists") and **Layer 2: Organizing Principles** (The strategic interpretation of "Why it matters").
 
 ---
 
-## 1. Organization & Core Entities
+# PART I: UNIVERSAL FACTS (Instance Data)
+*Entities that exist physically, legally, or financially, independent of our opinion.*
+
+## 1. Organization (The Players)
 
 ### `Company`
-- **Description**: Represents explicit legal or commercial organizations acting in a business context, distinct from their functional roles.
-- **Properties**:
-    - `companyId` (UUID)
-    - `legalName` (string)
-    - `tradeName` (string)
-    - `taxId` (string)
-    - `website` (url)
-    - `description` (string)
-    - `status` (enum: Active, Inactive)
-    - `country` (string)
-    - `region` (string)
-    - `city` (string)
-    - `stockSymbol` (string)
-    - `isUnidentified` (boolean)
-    - `contextKey` (string)
+- **Description**: Represents explicit legal or commercial organizations acting in a business context.
+- **Properties**: `companyId` (UUID), `legalName`, `tradeName`, `taxId`, `website`, `status` (Active, Inactive), `country`, `isUnidentified`, `contextKey`.
 
 ### `Person`
-- **Description**: Represents named individuals with associated contact information or recurring business interactions.
-- **Properties**:
-    - `personId` (UUID)
-    - `fullName` (string)
-    - `email` (string)
-    - `phone` (string)
-    - `jobTitle` (string)
-    - `roleCategory` (string)
-    - `timezone` (string)
-    - `linkedinUrl` (url)
+- **Description**: Represents named individuals with associated contact information.
+- **Properties**: `personId` (UUID), `fullName`, `email`, `phone`, `jobTitle`, `roleCategory`, `linkedinUrl`.
 
 ### `Site`
-- **Description**: Represents specific physical locations, facilities, or addresses where business operations or storage occur.
-- **Properties**:
-    - `siteId` (UUID)
-    - `name` (string)
-    - `type` (enum: Warehouse, Office, Retail, DataCenter, CustomerSite)
-    - `address` (string)
-    - `city` (string)
-    - `postalCode` (string)
-    - `geo` (point)
-    - `capacity_sqm` (number)
+- **Description**: Represents specific physical locations, facilities, or addresses.
+- **Properties**: `siteId` (UUID), `name`, `type` (Warehouse, Office, Retail), `address`, `city`, `geo` (point), `capacity_sqm`.
 
 ### `Equipment`
-- **Description**: Represents unique, serialized physical assets or machines, distinct from the abstract product model.
-- **Properties**:
-    - `equipmentId` (UUID)
-    - `serialNumber` (string)
-    - `assetTag` (string)
-    - `firmwareVersion` (string)
-    - `commissionedAt` (timestamp)
-    - `status` (enum: Active, InRepair, Retired, Inventory)
+- **Description**: Represents unique, serialized physical assets or machines.
+- **Properties**: `equipmentId` (UUID), `serialNumber`, `assetTag`, `firmwareVersion`, `status` (Active, InRepair, Retired).
 
----
-
-## 2. Classification Entities
-
-### `Territory`
-- **Description**: Represents a defined geographic region or commercial sales zone used for organizational inputs.
-- **Properties**:
-    - `territoryId` (UUID)
-    - `name` (string)
-    - `type` (enum: Country, Region, Continent, SalesZone)
-    - `isoCode` (string)
-
-### `Industry`
-- **Description**: Represents standard economic activity classifications or market segments.
-- **Properties**:
-    - `industryId` (UUID)
-    - `isicCode` (string)
-    - `title` (string)
-
----
-
-## 3. Product Entities
-
-### `Product`
-- **Description**: Represents the abstract catalog model or engineering definition of an item, distinct from individual physical units.
-- **Properties**:
-    - `productId` (UUID)
-    - `modelName` (string)
-    - `brand` (string)
-    - `nature` (enum: FinishedGood, Component, Kit)
-    - `description` (string)
-
-### `SKU`
-- **Description**: Represents a specific purchasable configuration or stock keeping unit with a defined price point.
-- **Properties**:
-    - `sku` (string)
-    - `name` (string)
-    - `currency` (string)
-    - `listPrice` (number)
-
-### `ProductCategory`
-- **Description**: Represents a taxonomic family or classification group for products.
-- **Properties**:
-    - `categoryId` (UUID)
-    - `name` (string)
-    - `description` (string)
-
----
-
-## 4. Business Commitments (The Ledger)
+## 2. The Ledger (Transactions & Commitments)
 
 ### `CommercialRelationship`
 - **Description**: Represents the formal, time-bound agreement status between two companies.
-- **Properties**:
-    - `relationshipId` (UUID)
-    - `type` (enum: Franchise, Partnership, ServiceAgreement, Distributorship)
-    - `status` (enum: Active, Expired, Terminated)
-    - `startDate` (date)
-    - `endDate` (date)
+- **Properties**: `relationshipId` (UUID), `type` (Franchise, Distributor), `status` (Active, Expired), `startDate`, `endDate`.
 
 ### `Contract`
-- **Description**: Represents a specific, signed legal document that governs a commercial relationship or transaction.
-- **Properties**:
-    - `contractId` (UUID)
-    - `referenceNumber` (string)
-    - `type` (enum: Distribution, Franchise, Service, NDA)
-    - `status` (enum)
-
-### `PriceList`
-- **Description**: Represents a named set of pricing policies, currencies, and validity dates applicable to specific partners.
-- **Properties**:
-    - `pricelistId` (UUID)
-    - `name` (string)
-    - `currency` (string)
-    - `validFrom` (date)
-    - `validTo` (date)
+- **Description**: Represents a specific, signed legal document.
+- **Properties**: `contractId` (UUID), `referenceNumber`, `type` (Distribution, NDA), `status`.
 
 ### `Order`
-- **Description**: Represents a confirmed financial commitment or Purchase Order for goods or services.
-- **Properties**:
-    - `orderId` (UUID)
-    - `orderNumber` (string)
-    - `status` (enum: Confirmed, Shipped, Paid, Cancelled)
-    - `totalAmount` (number)
-    - `currency` (string)
+- **Description**: Represents a confirmed financial commitment (PO) for goods/services.
+- **Properties**: `orderId` (UUID), `orderNumber`, `status` (Confirmed, Shipped, Paid), `totalAmount`, `currency`.
 
 ### `OrderLine`
-- **Description**: Represents an individual line item specifying quantity and price within a larger Order.
-- **Properties**:
-    - `quantity` (number)
-    - `unitPrice` (number)
-    - `total` (number)
+- **Description**: Represents an individual line item in an Order.
+- **Properties**: `quantity`, `unitPrice`, `total`.
 
----
+## 3. The Catalog (Engineering & Stock)
 
-## 5. Logistics (The Physics)
+### `Product`
+- **Description**: Represents the abstract catalog model or engineering definition.
+- **Properties**: `productId` (UUID), `modelName`, `brand`, `nature` (FinishedGood, Component), `description`.
+
+### `SKU`
+- **Description**: Represents a specific purchasable configuration with a price point.
+- **Properties**: `sku` (string), `name`, `currency`, `listPrice`.
+
+## 4. Logistics (The Physics)
 
 ### `Shipment`
-- **Description**: Represents a physical movement of goods identified by tracking numbers or bills of lading.
-- **Properties**:
-    - `shipmentId` (UUID)
-    - `trackingNumber` (string)
-    - `carrier` (string)
-    - `status` (enum: Ready, InTransit, CustomsHold, Delivered, Exception)
-    - `shippedAt` (timestamp)
-    - `estimatedDelivery` (timestamp)
-    - `weight_kg` (number)
+- **Description**: Represents a physical movement of goods (Tracking # / BOL).
+- **Properties**: `shipmentId` (UUID), `trackingNumber`, `carrier`, `status` (InTransit, Delivered), `shippedAt`, `estimatedDelivery`, `weight_kg`.
 
----
-
-## 6. Business Intent (The Pipeline)
-
-### `Opportunity`
-- **Description**: Represents a potential deal, lead, or ongoing negotiation that has not yet been finalized.
-- **Properties**:
-    - `opportunityId` (UUID)
-    - `name` (string)
-    - `stage` (enum: Prospect, Qualified, Proposal, Negotiation, ClosedWon, ClosedLost)
-    - `amount` (number)
-    - `confidence` (float)
-    - `expectedCloseDate` (date)
-
-### `Goal`
-- **Description**: Represents a specific, measurable strategic target or objective assigned to a person or time period.
-- **Properties**:
-    - `name` (string)
-    - `targetValue` (number)
-    - `metric` (string)
-    - `timeScope` (string)
-
-### `TimeFrame`
-- **Description**: Represents a specific operational period such as a week, quarter, or year used for planning.
-- **Properties**:
-    - `name` (string)
-    - `startDate` (date)
-    - `endDate` (date)
-
----
-
-## 7. Events (The Wisdom Engine)
-
-### `Event`
-- **Description**: Represents any point-in-time occurrence, interaction, or state change that provides causal context.
-- **Properties**:
-    - `eventId` (UUID)
-    - `eventCategory` (enum: Interaction, Activity, StateChange, SystemLog)
-    - `eventType` (string)
-    - `occurredAt` (timestamp)
-    - `summary` (string)
-    - `source` (string)
-    - `resultedInStatusChange` (boolean)
-    - `newStatusValue` (string)
-    - `triggerReason` (string)
-
----
-
-## 8. Provenance (Evidence)
+## 5. Provenance (The Evidence)
 
 ### `Source`
-- **Description**: Represents the original document, file, or URI from which data was extracted.
-- **Properties**:
-    - `sourceId` (UUID)
-    - `sourceType` (enum: PDF, Email, Chat, NewsArticle, WebPage)
-    - `uri` (string)
-    - `ingestedAt` (timestamp)
-    - `title` (string)
+- **Description**: Represents the original document/file from which data was extracted.
+- **Properties**: `sourceId` (UUID), `sourceType` (PDF, Email, WebPage), `uri`, `ingestedAt`.
 
 ### `Chunk`
-- **Description**: Represents the specific text block or segment within a source that evidenced a fact.
-- **Properties**:
-    - `chunkId` (UUID)
-    - `text` (string)
-    - `confidence` (float)
+- **Description**: Represents the specific text segment evidencing a fact.
+- **Properties**: `chunkId` (UUID), `text` (string), `confidence` (float).
 
 ---
 
-## 9. Universal Fact Relationships (The Verbs)
+# PART II: ORGANIZING PRINCIPLES (Insights & Strategy)
+*Concepts we impose on the data to create meaning, strategy, and narrative.*
 
-### Organization & Classification
+## 6. Business Interactions (The Pipeline)
+
+### `Activity`
+- **Description**: Represents actual interaction or work done (energy spent).
+- **Properties**: `activityId` (UUID), `type` (Meeting, Call, Email), `summary`, `occurredAt`, `durationMinutes`, `outcome`.
+
+### `Milestone`
+- **Description**: Represents value secured or a positive gate passed.
+- **Properties**: `milestoneId` (UUID), `name` (AgreementSigned, BudgetApproved), `achievedAt`, `valueEvidence` (string).
+
+### `Blocker`
+- **Description**: Represents friction, hurdles, or stoppages.
+- **Properties**: `blockerId` (UUID), `summary`, `category` (Legal, Tech, Budget), `status` (Active, Resolved), `identifiedAt`.
+
+### `MarketSignal`
+- **Description**: Represents external news providing context.
+- **Properties**: `signalId` (UUID), `headline`, `source`, `type` (Funding, Regs), `publishedAt`, `url`.
+
+### `Opportunity`
+- **Description**: Represents a potential deal or ongoing negotiation.
+- **Properties**: `opportunityId` (UUID), `name`, `stage` (Prospect, Negotiation, ClosedWon), `amount`, `confidence`, `expectedCloseDate`.
+
+## 8. Taxonomy & Policy (The Lens)
+
+### `Territory`
+- **Description**: Represents a defined geographic region or sales zone.
+- **Properties**: `territoryId` (UUID), `name`, `type` (Region, SalesZone), `isoCode`.
+
+### `Industry`
+- **Description**: Represents economic activity classifications.
+- **Properties**: `industryId` (UUID), `isicCode`, `title`.
+
+### `ProductCategory`
+- **Description**: Represents a taxonomic family for products.
+- **Properties**: `categoryId` (UUID), `name`, `description`.
+
+### `PriceList`
+- **Description**: Represents a named set of pricing policies.
+- **Properties**: `pricelistId` (UUID), `name`, `currency`, `validFrom`, `validTo`.
+
+---
+
+# PART III: RELATIONSHIPS
+
+## 9. Universal Fact Relationships (Instance Links)
+
+### Organization & Logistics
 - `(:Company)-[:SUBSIDIARY_OF]->(:Company)`
     - **Description**: Connects a child company to its parent legal entity for ownership context.
-- `(:Company)-[:BELONGS_TO_INDUSTRY]->(:Industry)`
-    - **Description**: Links a company to its primary economic activity classification.
 - `(:Company)-[:HAS_SITE]->(:Site)`
     - **Description**: Connects a company to a physical facility it owns, leases, or operates.
-- `(:Site)-[:LOCATED_IN]->(:Territory)`
-    - **Description**: Maps a physical site address to its broader geographic region or sales territory.
-- `(:Company)-[:OPERATES_IN]->(:Territory)`
-    - **Description**: Links a company to a region where it has a sales presence but no physical site.
 - `(:Person)-[:WORKS_FOR]->(:Company)`
     - **Description**: Links a person to their payroll employer.
+- `(:Company)-[:OWNS_ASSET]->(:Equipment)`
+    - **Description**: Links a company to the physical equipment they own.
+- `(:Equipment)-[:INSTALLED_AT]->(:Site)`
+    - **Description**: Links a physical asset to its operating location.
+- `(:Equipment)-[:INSTANCE_OF]->(:Product)`
+    - **Description**: Connects a specific unit to its abstract Product model.
 
-### Commercial Structure (The Bridge)
+### Commerce & Supply Chain
+- `(:Company)-[:MANUFACTURES]->(:Product)`
+    - **Description**: Links a company to the product models they design or build.
+- `(:Company)-[:DISTRIBUTES]->(:Product)`
+    - **Description**: Links a company to the product models they are authorized to sell.
 - `(:Company)-[:HAS_RELATIONSHIP]->(:CommercialRelationship)`
     - **Description**: Connects a company to the intermediate node storing the partnership status.
 - `(:CommercialRelationship)-[:DEFINED_BY]->(:Contract)`
     - **Description**: Links a partnership node to the governing legal document.
-- `(:CommercialRelationship)-[:RELATIONSHIP_CHANGED]->(:Event)`
-    - **Description**: Connects a relationship to a timestamped event that altered its status.
-
-### Transactions (The Money)
+- `(:Contract)-[:BINDS_COMPANY]->(:Company)`
+    - **Description**: Links a contract document to the signing parties.
 - `(:Company)-[:PLACED_ORDER]->(:Order)`
     - **Description**: Links the buying entity to the Order node.
 - `(:Order)-[:SOLD_BY]->(:Company)`
@@ -266,52 +153,46 @@
     - **Description**: Connects the parent Order to its individual line items.
 - `(:OrderLine)-[:REFERENCES_SKU]->(:SKU)`
     - **Description**: Links a line item to the specific commercial SKU being purchased.
-- `(:Contract)-[:BINDS_COMPANY]->(:Company)`
-    - **Description**: Links a contract document to the signing parties.
-- `(:Company)-[:OWNS_ASSET]->(:Equipment)`
-    - **Description**: Links a company to the physical equipment they own.
-
-### Supply Chain & Product Logic
-- `(:Company)-[:MANUFACTURES]->(:Product)`
-    - **Description**: Links a company to the product models they design or build.
-- `(:Company)-[:DISTRIBUTES]->(:Product)`
-    - **Description**: Links a company to the product models they are authorized to sell.
-- `(:Product)-[:CATEGORIZED_AS]->(:ProductCategory)`
-    - **Description**: Connects a product model to its taxonomic family.
 - `(:SKU)-[:VARIANT_OF]->(:Product)`
     - **Description**: Links a purchasable SKU to its abstract engineering Product model.
-- `(:Product)-[:COMPOSED_OF]->(:Product)`
-    - **Description**: Connects a parent product to its child components or parts.
-- `(:Product)-[:COMPATIBLE_WITH]->(:Product)`
-    - **Description**: Links a spare part or accessory to the main product model it works with.
 
-### Physical Inventory & Logistics
-- `(:Site)-[:STORES]->(:Product)`
-    - **Description**: Links a physical location to the product models held in inventory there.
-- `(:Equipment)-[:INSTANCE_OF]->(:Product)`
-    - **Description**: Connects a specific unit to its abstract Product model.
-- `(:Equipment)-[:INSTALLED_AT]->(:Site)`
-    - **Description**: Links a physical asset to its operating location.
+### Shipment Flow
 - `(:Order)-[:FULFILLED_BY]->(:Shipment)`
     - **Description**: Connects an Order to the Shipment moving the goods.
 - `(:Shipment)-[:ORIGINATED_FROM]->(:Site)`
     - **Description**: Links a shipment to its starting facility.
 - `(:Shipment)-[:DESTINED_FOR]->(:Site)`
     - **Description**: Links a shipment to its destination.
-- `(:Shipment)-[:CURRENTLY_LOCATED_AT]->(:Site)`
-    - **Description**: Links an active shipment to its last scanned location.
 - `(:Shipment)-[:CONTAINS_ASSET]->(:Equipment)`
     - **Description**: Links a shipment to the specific units inside it.
-- `(:Shipment)-[:CONTAINS_STOCK]->(:SKU)`
-    - **Description**: Links a shipment to the quantity of SKUs being transported.
 
-### Pricing Logic
-- `(:Company)-[:ELIGIBLE_FOR]->(:PriceList)`
-    - **Description**: Links a company to its assigned pricing policy.
-- `(:PriceList)-[:PRICES_SKU {amount: Number}]->(:SKU)`
-    - **Description**: Defines the price for a SKU within a specific Price List.
+### Provenance
+- `(:AnyNode)-[:EVIDENCED_BY]->(:Source)`
+    - **Description**: Links any node to its original source document.
 
-### Intent & Planning
+## 10. Organizing Principle Relationships (Insight Links)
+
+### The Wisdom Chain (Narrative)
+- `(:MarketSignal)-[:TRIGGERED]->(:Activity)`
+    - **Description**: Links external news to the outreach or action it inspired (Context).
+- `(:Person)-[:PERFORMED]->(:Activity)`
+    - **Description**: Links a key stakeholder to the work they did.
+- `(:Activity)-[:TARGETED]->(:Company)`
+    - **Description**: Connects an activity to the account it was for.
+- `(:Activity)-[:TARGETED]->(:Opportunity)`
+    - **Description**: Connects an activity to the specific deal it supports.
+- `(:Activity)-[:RESULTED_IN]->(:Milestone)`
+    - **Description**: Links work done to the tangible progress it secured (Progress).
+- `(:Activity)-[:ENCOUNTERED]->(:Blocker)`
+    - **Description**: Links work done to the friction or hurdle discovered (Friction).
+- `(:Activity)-[:RESOLVES]->(:Blocker)`
+    - **Description**: Links work done to the removal of a previous blocker.
+- `(:Blocker)-[:STALLS]->(:Opportunity)`
+    - **Description**: Explicitly links a specific problem to the frozen deal status.
+- `(:CommercialRelationship)-[:RELATIONSHIP_CHANGED]->(:Activity)` 
+    - **Description**: Connects a relationship to an activity that altered its status.
+
+### Pipeline & Strategy
 - `(:Person)-[:OWNS_OPPORTUNITY]->(:Opportunity)`
     - **Description**: Links a salesperson to the deal they manage.
 - `(:Opportunity)-[:RELATED_TO_COMPANY]->(:Company)`
@@ -320,25 +201,21 @@
     - **Description**: Links an opportunity to the relevant product models.
 - `(:Opportunity)-[:CONTRIBUTES_TO]->(:Goal)`
     - **Description**: Connects a deal to the strategic goal it supports.
-- `(:TimeFrame)-[:HAS_GOAL]->(:Goal)`
-    - **Description**: Links a time period to its defined targets.
 - `(:Goal)-[:ASSIGNED_TO]->(:Person)`
     - **Description**: Links a goal to the accountable person.
+- `(:TimeFrame)-[:HAS_GOAL]->(:Goal)`
+    - **Description**: Links a time period to its defined targets.
 
-### Interaction History & Wisdom
-- `(:Person)-[:PARTICIPATED_IN]->(:Event)`
-    - **Description**: Links an individual to an interaction they attended.
-- `(:Company)-[:ORGANIZED]->(:Event)`
-    - **Description**: Links a company to an event they hosted.
-- `(:Event)-[:DISCUSSED]->(:Product)`
-    - **Description**: Links an interaction to the product discussed.
-- `(:Event)-[:DISCUSSED]->(:Company)`
-    - **Description**: Links an interaction to a company discussed.
-- `(:Event)-[:GENERATED]->(:Opportunity)`
-    - **Description**: Links an interaction to a resulting deal or lead.
-- `(:Event)-[:CHANGED_STATUS_OF]->(:Entity)`
-    - **Description**: Connects a causal event to the entity whose status changed.
-
-### Provenance (Evidence)
-- `(:AnyNode)-[:EVIDENCED_BY]->(:Source)`
-    - **Description**: Links any node to its original source document.
+### Classification & Policy
+- `(:Company)-[:BELONGS_TO_INDUSTRY]->(:Industry)`
+    - **Description**: Links a company to its primary economic activity classification.
+- `(:Site)-[:LOCATED_IN]->(:Territory)`
+    - **Description**: Maps a physical site address to its broader geographic region or sales territory.
+- `(:Company)-[:OPERATES_IN]->(:Territory)`
+    - **Description**: Links a company to a region where it has a sales presence but no physical site.
+- `(:Product)-[:CATEGORIZED_AS]->(:ProductCategory)`
+    - **Description**: Connects a product model to its taxonomic family.
+- `(:Company)-[:ELIGIBLE_FOR]->(:PriceList)`
+    - **Description**: Links a company to its assigned pricing policy.
+- `(:PriceList)-[:PRICES_SKU {amount: Number}]->(:SKU)`
+    - **Description**: Defines the price for a SKU within a specific Price List.
